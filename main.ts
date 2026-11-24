@@ -19,6 +19,24 @@ if (LINE.trim().length === 0 || LINE.includes("\n")) {
   throw new Error("entry must be a single non-blank line");
 }
 
+// Reject control characters (U+0000–U+001F, U+007F) and any runs of
+// consecutive spaces — the scorer compares the title verbatim, so
+// invisible control bytes or double spaces would silently change it.
+if (/[\u0000-\u001F\u007F]/.test(LINE) || LINE.includes("  ")) {
+  throw new Error("entry must not contain control characters or double spaces");
+}
+
+// Byte-length guard: the scorer's 44-code-point gate counts characters,
+// but the file is read as UTF-8 bytes — if a future edit ever introduced a
+// multi-byte character, the byte count would diverge from the code-point
+// count and the entry would fail the sealed check. Assert both agree here.
+const byteLength = Buffer.byteLength(LINE, "utf8");
+if (byteLength !== codePoints.length) {
+  throw new Error(
+    `entry must be pure ASCII: ${codePoints.length} code points but ${byteLength} bytes`,
+  );
+}
+
 mkdirSync(OUTPUT_DIR, { recursive: true });
 writeFileSync(join(OUTPUT_DIR, "entry.txt"), LINE, "utf8");
 
